@@ -54,13 +54,13 @@ def load_data(csv_path: str) -> pd.DataFrame:
 
 def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     """
-
+    preprocesses the data - drops irrelevant columns, filters out nan rows
     :param df:
     :return:
     """
     # TODO: add the intercept col, maybe remove zipcode, deal with illegal
     #       values, maybe remove date?
-    df.insert(0, 'intercept', 1)
+    df.insert(0, 'intercept', 1)  # adding the intercept
     df = df.drop('id', axis=1)
     df = df.drop('zipcode', axis=1)
     df = df.drop('date', axis=1)
@@ -73,12 +73,20 @@ def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def plot_singular_values():
+def plot_singular_values(singular_values: np.array):
     """
     plots the features and their singular values
-    :return:
     """
-    # TODO: figure out what this function gets
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot(111)
+    ax.set_xlabel('number of singular value')
+    ax.set_ylabel('singular value')
+    ax.set_title("The singular values of the data")
+    x_axis = np.arange(1, len(singular_values) + 1)
+    ax.set_xticks(x_axis)
+    ax.scatter(x_axis, singular_values)
+    fig.show()
+    fig.savefig(r'./images/singular_values.png')
     pass
 
 
@@ -89,8 +97,6 @@ def getting_ready() -> pd.DataFrame:
     """
     PATH = r"./kc_house_data.csv"
     df = load_data(PATH)
-    # TODO: make this functional
-    # plot_singular_values()
     return df
 
 
@@ -154,7 +160,9 @@ def feature_evaluation(design_matrix: pd.DataFrame, response_vector: np.array):
 
 if __name__ == '__main__':
     design_matrix = getting_ready()
-    train(design_matrix)
+    U, sigma_val, V = np.linalg.svd(design_matrix.to_numpy().astype(np.float))
+    plot_singular_values(sigma_val)
+    # train(design_matrix)
     # response_vector = design_matrix['price'].to_numpy().astype(np.float)
     # mat = design_matrix.drop('price', axis=1)
     # feature_evaluation(mat, response_vector)
