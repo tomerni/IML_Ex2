@@ -13,8 +13,6 @@ def fit_linear_regression(X: np.array, y: np.array) -> tuple:
     values of X
     """
     U, sigma_val, V = np.linalg.svd(X)
-    # sigma_matrix = np.zeros((U.shape[0], V.shape[1]), np.float)
-    # np.fill_diagonal(sigma_matrix, sigma_val)
     X_pseudo_inverse = np.linalg.pinv(X)
     w_hat = X_pseudo_inverse.dot(y)
     return w_hat, sigma_val
@@ -54,12 +52,12 @@ def load_data(csv_path: str) -> pd.DataFrame:
 
 def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     """
-    preprocesses the data - drops irrelevant columns, filters out nan rows
+    preprocesses the data - drops irrelevant columns, inserts the intercept col
+    filters out nan rows, filters out 0 bedrooms
     :param df:
     :return:
     """
-    # TODO: add the intercept col, maybe remove zipcode, deal with illegal
-    #       values, maybe remove date?
+    # TODO: deal with illegal values, maybe remove date?
     df.insert(0, 'intercept', 1)  # adding the intercept
     df = df.drop('id', axis=1)
     df = df.drop('zipcode', axis=1)
@@ -68,8 +66,12 @@ def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     # df = df.drop('yr_built', axis=1)
     # df = df.drop('lat', axis=1)
     # df = df.drop('long', axis=1)
+    # df = df.drop('condition', axis=1)
+    # df = df.drop('sqft_lot', axis=1)
+    # df = df.drop('sqft_lot15', axis=1)
     df = df[df['price'] > 0]
     df = df[df['price'] != 'nan']
+    df = df[df['bedrooms'] > 0]
     return df
 
 
@@ -87,7 +89,6 @@ def plot_singular_values(singular_values: np.array):
     ax.scatter(x_axis, singular_values)
     fig.show()
     fig.savefig(r'./images/singular_values.png')
-    pass
 
 
 def getting_ready() -> pd.DataFrame:
@@ -137,10 +138,12 @@ def feature_evaluation(design_matrix: pd.DataFrame, response_vector: np.array):
     :param design_matrix
     :param response_vector
     """
+    # TODO: change the features only to the relevant ones
     numeric_features = ["sqft_living", "sqft_lot", "sqft_above",
                         "sqft_basement", "sqft_living15", "sqft_lot15",
                         "bedrooms", "bathrooms", "floors", "condition",
-                        "grade"]
+                        "grade", "waterfront", "view", "yr_built",
+                        "yr_renovated", "lat", "long"]
     response_vector_deviation = np.std(response_vector)
     for feature in numeric_features:
         feature_vector = design_matrix[feature].to_numpy().astype(np.float)
@@ -160,8 +163,8 @@ def feature_evaluation(design_matrix: pd.DataFrame, response_vector: np.array):
 
 if __name__ == '__main__':
     design_matrix = getting_ready()
-    U, sigma_val, V = np.linalg.svd(design_matrix.to_numpy().astype(np.float))
-    plot_singular_values(sigma_val)
+    # U, Sigma, V = np.linalg.svd(design_matrix.to_numpy().astype(np.float))
+    # plot_singular_values(Sigma)
     # train(design_matrix)
     # response_vector = design_matrix['price'].to_numpy().astype(np.float)
     # mat = design_matrix.drop('price', axis=1)
