@@ -2,6 +2,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
+NUMERIC_FEATURES = ["sqft_living", "sqft_lot", "sqft_above",
+                    "sqft_basement", "sqft_living15", "sqft_lot15",
+                    "bedrooms", "bathrooms", "floors", "condition",
+                    "grade", "waterfront", "view", "yr_renovated"]
+
+COLS_TO_REMOVE = ['id', 'date', 'long', 'zipcode', 'yr_built', "sqft_lot",
+                  "sqft_above"]
+
 
 def fit_linear_regression(X: np.array, y: np.array) -> tuple:
     """
@@ -12,7 +20,7 @@ def fit_linear_regression(X: np.array, y: np.array) -> tuple:
     :return: w_hat - the coefficients vector (d rows), sigma_val - the singular
     values of X
     """
-    U, sigma_val, V = np.linalg.svd(X)
+    sigma_val = np.linalg.svd(X, compute_uv=False)
     X_pseudo_inverse = np.linalg.pinv(X)
     w_hat = X_pseudo_inverse.dot(y)
     return w_hat, sigma_val
@@ -41,9 +49,24 @@ def mse(response_vector: np.array, prediction_vector: np.array) -> float:
 def load_data(csv_path: str) -> pd.DataFrame:
     """
     loads the data from the csv to a DataFrame and preprocesses it.
-    The categorical features are - zipcode, date (maybe), long/lat
-    :param csv_path:
-    :return:
+    The categorical features are - zipcode, date, long, lat, yr_built,
+    yr_renovated.
+    I decided to drop the zipcode, date, long and yr_built columns.
+    zipcode - after reading online and observing the data I found out that
+    there is a very weak correlation between the zipcode and the price.
+    date - the date is not correlated linearly with the price. Moreover, in the
+    same date a very expensive house and a very cheap house could be sold, so
+    I thought that it will add a lot of randomness and noise to the model.
+    lat and long - in a big city (and even on small one) there are vast
+    differences between houses in the same long and lat. This is because those
+    fields aren't accurate enough. I think that they will add a lot of noise
+    to the model. After I observed the correlation between those field and the
+    price, I found out that the long field has almost 0 correlation so I
+    decided to drop it.
+    Moreover, I dropped the sqft_above and sqft_basement because in the data
+    you can see that sqft_above + sqft_basement = sqft_living.
+    :param csv_path: the path of the csv
+    :return: the processed data frame
     """
     df = pd.read_csv(csv_path)
     df = preprocessing(df)
@@ -54,24 +77,16 @@ def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     """
     preprocesses the data - drops irrelevant columns, inserts the intercept col
     filters out nan rows, filters out 0 bedrooms
-    :param df:
+    :param df: the filtered data frame
     :return:
     """
-    # TODO: deal with illegal values, maybe remove date?
     df.insert(0, 'intercept', 1)  # adding the intercept
-    df = df.drop('id', axis=1)
-    df = df.drop('zipcode', axis=1)
-    df = df.drop('date', axis=1)
-    # df = df.drop('yr_renovated', axis=1)
-    # df = df.drop('yr_built', axis=1)
-    # df = df.drop('lat', axis=1)
-    # df = df.drop('long', axis=1)
-    # df = df.drop('condition', axis=1)
-    # df = df.drop('sqft_lot', axis=1)
-    # df = df.drop('sqft_lot15', axis=1)
-    df = df[df['price'] > 0]
-    df = df[df['price'] != 'nan']
-    df = df[df['bedrooms'] > 0]
+    df = df.drop(columns=COLS_TO_REMOVE, axis=1)  # drops unnecessary cols
+    df = df[(df['price'] > 0) & (df['price'] != 'nan')]  # invalid data in
+    # the target col
+    df = df[df['bedrooms'] > 0]  # this condition removes all most all of the
+    # invalid rows in the data
+    df.loc[(df.yr_renovated != 0), 'yr_renovated'] = 1  # categorical field
     return df
 
 
@@ -114,7 +129,8 @@ def train(df: pd.DataFrame):
     mse_arr = list()
     for i in range(1, 101):
         training_arr = training_df.head(int(len(training_df) * (i / 100)))
-        design_matrix = training_arr.drop('price', axis=1).to_numpy().astype(np.float)
+        design_matrix = training_arr.drop('price', axis=1).to_numpy().astype(
+            np.float)
         cur_response_vector = training_arr['price'].to_numpy().astype(np.float)
         coefficients_vector = fit_linear_regression(design_matrix,
                                                     cur_response_vector)[0]
@@ -138,18 +154,13 @@ def feature_evaluation(design_matrix: pd.DataFrame, response_vector: np.array):
     :param design_matrix
     :param response_vector
     """
-    # TODO: change the features only to the relevant ones
-    numeric_features = ["sqft_living", "sqft_lot", "sqft_above",
-                        "sqft_basement", "sqft_living15", "sqft_lot15",
-                        "bedrooms", "bathrooms", "floors", "condition",
-                        "grade", "waterfront", "view", "yr_built",
-                        "yr_renovated", "lat", "long"]
+
     response_vector_deviation = np.std(response_vector)
-    for feature in numeric_features:
+    for feature in NUMERIC_FEATURES:
         feature_vector = design_matrix[feature].to_numpy().astype(np.float)
         divisor = response_vector_deviation * np.std(feature_vector)
         cov = np.cov(response_vector, feature_vector)[0, 1]
-        pearson_correlation = cov/divisor
+        pearson_correlation = cov / divisor
         fig = plt.figure(figsize=(10, 10))
         ax = fig.add_subplot(111)
         ax.set_xlabel('{}'.format(feature))
@@ -162,10 +173,10 @@ def feature_evaluation(design_matrix: pd.DataFrame, response_vector: np.array):
 
 
 if __name__ == '__main__':
-    design_matrix = getting_ready()
-    # U, Sigma, V = np.linalg.svd(design_matrix.to_numpy().astype(np.float))
-    # plot_singular_values(Sigma)
-    # train(design_matrix)
-    # response_vector = design_matrix['price'].to_numpy().astype(np.float)
-    # mat = design_matrix.drop('price', axis=1)
-    # feature_evaluation(mat, response_vector)
+    matrix = getting_ready()
+    Sigma = np.linalg.svd(matrix.to_numpy().astype(np.float),
+                          compute_uv=False)
+    plot_singular_values(Sigma)
+    response_vector = matrix['price'].to_numpy().astype(np.float)
+    mat = matrix.drop('price', axis=1)
+    feature_evaluation(mat, response_vector)
