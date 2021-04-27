@@ -5,10 +5,10 @@ import matplotlib.pyplot as plt
 NUMERIC_FEATURES = ["sqft_living", "sqft_lot", "sqft_above",
                     "sqft_basement", "sqft_living15", "sqft_lot15",
                     "bedrooms", "bathrooms", "floors", "condition",
-                    "grade", "waterfront", "view", "yr_renovated"]
+                    "grade", "waterfront", "view", "yr_renovated",
+                    "sqft_above"]
 
-COLS_TO_REMOVE = ['id', 'date', 'long', 'zipcode', 'yr_built', "sqft_lot",
-                  "sqft_above"]
+COLS_TO_REMOVE = ['id', 'date', 'long', 'zipcode', 'yr_built', "sqft_lot"]
 
 
 def fit_linear_regression(X: np.array, y: np.array) -> tuple:
@@ -87,6 +87,14 @@ def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     df = df[df['bedrooms'] > 0]  # this condition removes all most all of the
     # invalid rows in the data
     df.loc[(df.yr_renovated != 0), 'yr_renovated'] = 1  # categorical field
+    # removing outliers:
+    df = df[df['bedrooms'] < 10]
+    df = df[df['bathrooms'] < 7]
+    df = df[df['floors'] < 3.5]
+    df = df[df['grade'] <= 12]
+    df = df[df['sqft_above'] < 8000]
+    df = df[df['sqft_living'] < 10000]
+    df = df[df['sqft_living15'] < 5500]
     return df
 
 
@@ -144,7 +152,7 @@ def train(df: pd.DataFrame):
     ax.set_title("MSE as a function of %")
     ax.plot(np.arange(1, 101), np.array(mse_arr))
     fig.show()
-    fig.savefig(r'./images/mse.png')
+    fig.savefig(r'./images/mse1.png')
 
 
 def feature_evaluation(design_matrix: pd.DataFrame, response_vector: np.array):
@@ -154,7 +162,6 @@ def feature_evaluation(design_matrix: pd.DataFrame, response_vector: np.array):
     :param design_matrix
     :param response_vector
     """
-
     response_vector_deviation = np.std(response_vector)
     for feature in NUMERIC_FEATURES:
         feature_vector = design_matrix[feature].to_numpy().astype(np.float)
@@ -177,6 +184,7 @@ if __name__ == '__main__':
     Sigma = np.linalg.svd(matrix.to_numpy().astype(np.float),
                           compute_uv=False)
     plot_singular_values(Sigma)
+    train(matrix)
     response_vector = matrix['price'].to_numpy().astype(np.float)
     mat = matrix.drop('price', axis=1)
     feature_evaluation(mat, response_vector)
